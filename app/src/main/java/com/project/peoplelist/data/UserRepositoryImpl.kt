@@ -16,18 +16,19 @@ class UserRepositoryImpl(
     private val localUserDataSource: LocalUserDataSource
 ) : UserRepository {
 
-    override fun getUsers(): Flow<PagingData<User>> {
+    override fun getUsers(searchQuery: String): Flow<PagingData<User>> {
         return Pager(
             config = PagingConfig(
-                pageSize = 3,  // ✅ 3 usuários por página
+                pageSize = 3,
                 enablePlaceholders = false,
                 prefetchDistance = 2,
-                initialLoadSize = 3  // ✅ Primeira carga também 3
+                initialLoadSize = 3
             ),
             pagingSourceFactory = {
                 UserPagingSource(
                     remoteUserDataSource = remoteUserDataSource,
-                    localUserDataSource = localUserDataSource
+                    localUserDataSource = localUserDataSource,
+                    searchQuery = searchQuery
                 )
             }
         ).flow
@@ -41,14 +42,13 @@ class UserRepositoryImpl(
                 localUser
             } else {
                 try {
-                    val allUsers = remoteUserDataSource.getUsers().first()
+                    val allUsers = remoteUserDataSource.getUsers("").first()
                     val user = allUsers.find { it.id == id }
 
                     user?.let {
                         try {
                             localUserDataSource.insertUsers(listOf(it))
                         } catch (cacheException: Exception) {
-                            // Se falhar ao salvar no cache, continua sem cache
                         }
                     }
 
@@ -76,12 +76,11 @@ class UserRepositoryImpl(
 
     override suspend fun refreshUsers() {
         try {
-            val users = remoteUserDataSource.getUsers().first()
+            val users = remoteUserDataSource.getUsers("").first()
 
             try {
                 localUserDataSource.deleteAllUsers()
             } catch (deleteException: Exception) {
-                // Se falhar ao deletar, continua
             }
 
             if (users.isNotEmpty()) {
