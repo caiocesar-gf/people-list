@@ -23,7 +23,7 @@ class UserListViewModel(
     private val _state = MutableStateFlow(UserListState())
     val state: StateFlow<UserListState> = _state.asStateFlow()
 
-    val users: Flow<PagingData<User>> = getUsersUseCase(searchQuery = "")
+    val users: Flow<PagingData<User>> = getUsersUseCase()
         .cachedIn(viewModelScope)
 
     fun refresh() {

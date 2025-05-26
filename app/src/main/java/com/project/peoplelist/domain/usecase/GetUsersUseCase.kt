@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 class GetUsersUseCase(
     private val userRepository: UserRepository
 ) {
-    operator fun invoke(searchQuery: String = ""): Flow<PagingData<User>> {
-        return userRepository.getUsers(searchQuery)
+    operator fun invoke(): Flow<PagingData<User>> {
+        return userRepository.getUsers()
     }
 }
