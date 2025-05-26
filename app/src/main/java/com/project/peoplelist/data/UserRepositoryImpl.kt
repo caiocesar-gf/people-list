@@ -19,10 +19,11 @@ class UserRepositoryImpl(
     override fun getUsers(searchQuery: String): Flow<PagingData<User>> {
         return Pager(
             config = PagingConfig(
-                pageSize = 3,
+                pageSize = 3,  // ✅ 3 usuários por página SEMPRE
                 enablePlaceholders = false,
-                prefetchDistance = 2,
-                initialLoadSize = 3
+                prefetchDistance = 1,  // ✅ Menor para melhor controle
+                initialLoadSize = 3,   // ✅ Primeira carga também 3
+                maxSize = 50          // ✅ Limite máximo para performance
             ),
             pagingSourceFactory = {
                 UserPagingSource(
@@ -49,6 +50,7 @@ class UserRepositoryImpl(
                         try {
                             localUserDataSource.insertUsers(listOf(it))
                         } catch (cacheException: Exception) {
+                            // Se falhar ao salvar no cache, continua sem cache
                         }
                     }
 
@@ -81,6 +83,7 @@ class UserRepositoryImpl(
             try {
                 localUserDataSource.deleteAllUsers()
             } catch (deleteException: Exception) {
+                // Se falhar ao deletar, continua
             }
 
             if (users.isNotEmpty()) {

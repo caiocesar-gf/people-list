@@ -31,26 +31,17 @@ class UserLoadStateAdapter(
 
         fun bind(loadState: LoadState) {
             binding.apply {
-                // Mostra loading enquanto carrega
+                // Loading
                 progressBar.isVisible = loadState is LoadState.Loading
-                loadingText.isVisible = loadState is LoadState.Loading
 
-                retryButton.isVisible = loadState is LoadState.Error
+                // Error
+                val isError = loadState is LoadState.Error
+                textError.isVisible = isError
+                buttonRetry.isVisible = isError
 
-                errorText.isVisible = loadState is LoadState.Error
-                if (loadState is LoadState.Error) {
-                    errorText.text = "Erro ao carregar próxima página"
-                }
-
-                // Configura clique do retry
-                retryButton.setOnClickListener {
-                    retry()
-                }
-
-                root.setOnClickListener {
-                    if (loadState is LoadState.Error) {
-                        retry()
-                    }
+                if (isError) {
+                    textError.text = "Erro ao carregar dados"
+                    buttonRetry.setOnClickListener { retry() }
                 }
             }
         }

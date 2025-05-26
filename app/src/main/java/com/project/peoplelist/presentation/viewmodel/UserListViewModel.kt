@@ -6,10 +6,14 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.project.core.User
 import com.project.peoplelist.domain.usecase.GetUsersUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 
 data class UserListState(
@@ -26,9 +30,12 @@ class UserListViewModel(
 
     private val _searchQuery = MutableStateFlow("")
 
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     val users: Flow<PagingData<User>> = _searchQuery
+        .debounce(300)
+        .distinctUntilChanged()
         .flatMapLatest { query ->
-            getUsersUseCase(query)
+            getUsersUseCase(query.trim())
         }
         .cachedIn(viewModelScope)
 
@@ -37,16 +44,9 @@ class UserListViewModel(
     }
 
     fun refresh() {
-        _state.value = _state.value.copy(isLoading = true)
-        // Força reload do PagingSource
-        val currentQuery = _searchQuery.value
-        _searchQuery.value = ""
-        _searchQuery.value = currentQuery
-        _state.value = _state.value.copy(isLoading = false)
     }
 
     fun retry() {
-        refresh()
     }
 
     fun clearError() {
