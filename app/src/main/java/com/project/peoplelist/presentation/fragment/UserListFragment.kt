@@ -8,12 +8,13 @@ import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import androidx.paging.LoadState
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.snackbar.Snackbar
 import com.project.peoplelist.databinding.FragmentUserListBinding
 import com.project.peoplelist.presentation.UserListAdapter
+import com.project.peoplelist.presentation.UserLoadStateAdapter
 import com.project.peoplelist.presentation.viewmodel.UserListViewModel
-import com.project.peoplelist.presentation.viewmodel.UserListState
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -44,6 +45,7 @@ class UserListFragment : Fragment() {
         setupSearch()
         observeState()
         observeUsers()
+        observeLoadState()
     }
 
     private fun setupAdapter() {
@@ -54,9 +56,13 @@ class UserListFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
+        val loadStateAdapter = UserLoadStateAdapter {
+            adapter.retry()
+        }
+
         binding.userRecyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
-            adapter = this@UserListFragment.adapter
+            adapter = this@UserListFragment.adapter.withLoadStateFooter(loadStateAdapter)
             setHasFixedSize(true)
         }
     }
@@ -78,8 +84,6 @@ class UserListFragment : Fragment() {
     private fun observeState() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.state.collectLatest { state ->
-                binding.swipeRefreshLayout.isRefreshing = state.isLoading
-
                 state.error?.let { error ->
                     Snackbar.make(binding.root, error, Snackbar.LENGTH_LONG)
                         .setAction("Tentar novamente") {
@@ -96,6 +100,24 @@ class UserListFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.users.collectLatest { pagingData ->
                 adapter.submitData(pagingData)
+            }
+        }
+    }
+
+    private fun observeLoadState() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            adapter.loadStateFlow.collectLatest { loadState ->
+                binding.swipeRefreshLayout.isRefreshing =
+                    loadState.refresh is LoadState.Loading
+
+                val refreshError = loadState.refresh as? LoadState.Error
+                refreshError?.let {
+                    Snackbar.make(binding.root, "Erro ao atualizar lista", Snackbar.LENGTH_LONG)
+                        .setAction("Tentar novamente") {
+                            adapter.refresh()
+                        }
+                        .show()
+                }
             }
         }
     }

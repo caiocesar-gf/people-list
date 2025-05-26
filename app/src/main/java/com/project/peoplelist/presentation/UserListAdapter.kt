@@ -34,24 +34,17 @@ class UserListAdapter(
 
         fun bind(user: User) {
             binding.apply {
-                // Informações pessoais
                 textUserName.text = user.name
                 textUserUsername.text = "@${user.username}"
                 textUserEmail.text = user.email
                 textUserPhone.text = user.phone
                 textUserWebsite.text = user.website
-
-                // Endereço completo
                 val fullAddress = "${user.address.street}, ${user.address.suite}\n" +
                         "${user.address.city}, ${user.address.zipcode}"
                 textUserAddress.text = fullAddress
-
-                // Informações da empresa
                 textCompanyName.text = user.company.name
                 textCompanyCatchPhrase.text = user.company.catchPhrase
                 textCompanyBs.text = user.company.bs
-
-                // Click listener
                 root.setOnClickListener {
                     onUserClick(user)
                 }

@@ -18,76 +18,59 @@ class UserPagingSource(
         val currentPage = params.key ?: 1
 
         return try {
-            // Se tem filtro de busca, sempre busca da rede
-            if (searchQuery.isNotEmpty()) {
-                delay(500) // Delay menor para busca
-                val filteredUsers = remoteUserDataSource.getUsers(searchQuery).first()
-                return paginateUsers(filteredUsers, currentPage)
-            }
+            delay(800)
 
-            // Sem filtro: verifica cache primeiro
-            val cachedUsers = try {
-                localUserDataSource.getUsers().first()
-            } catch (e: Exception) {
-                emptyList()
-            }
-
-            // Se tem cache, use ele e tente atualizar em background
-            if (cachedUsers.isNotEmpty()) {
-                val result = paginateUsers(cachedUsers, currentPage)
-
-                // Tenta atualizar cache em background (sem afetar resultado)
-                try {
-                    val freshUsers = remoteUserDataSource.getUsers().first()
-                    if (freshUsers.isNotEmpty() && freshUsers != cachedUsers) {
-                        localUserDataSource.deleteAllUsers()
-                        localUserDataSource.insertUsers(freshUsers)
-                    }
-                } catch (networkError: Exception) {
-                    // Falha de rede é silenciosa quando temos cache
+            val allUsers = if (searchQuery.isNotEmpty()) {
+                remoteUserDataSource.getUsers(searchQuery).first()
+            } else {
+                val cachedUsers = try {
+                    localUserDataSource.getUsers().first()
+                } catch (e: Exception) {
+                    emptyList()
                 }
 
-                return result
-            }
-
-            // Se não tem cache, busca da rede
-            delay(800) // Delay maior para primeira carga
-
-            val allUsers = remoteUserDataSource.getUsers().first()
-
-            // Salva no cache apenas quando não há filtro
-            if (allUsers.isNotEmpty()) {
-                try {
-                    localUserDataSource.deleteAllUsers()
-                    localUserDataSource.insertUsers(allUsers)
-                } catch (e: Exception) {
-                    // Erro no cache não afeta o resultado
+                if (cachedUsers.isNotEmpty()) {
+                    try {
+                        val freshUsers = remoteUserDataSource.getUsers("").first()
+                        if (freshUsers.isNotEmpty() && freshUsers != cachedUsers) {
+                            localUserDataSource.deleteAllUsers()
+                            localUserDataSource.insertUsers(freshUsers)
+                        }
+                    } catch (networkError: Exception) {
+                    }
+                    cachedUsers
+                } else {
+                    val users = remoteUserDataSource.getUsers("").first()
+                    if (users.isNotEmpty()) {
+                        try {
+                            localUserDataSource.deleteAllUsers()
+                            localUserDataSource.insertUsers(users)
+                        } catch (e: Exception) {
+                        }
+                    }
+                    users
                 }
             }
 
             paginateUsers(allUsers, currentPage)
 
         } catch (e: Exception) {
-            // Em caso de erro de rede, tenta carregar do cache
             try {
                 val cachedUsers = localUserDataSource.getUsers().first()
-
-                if (cachedUsers.isNotEmpty()) {
-                    // Aplica filtro no cache se necessário
-                    val filteredCached = if (searchQuery.isNotEmpty()) {
-                        cachedUsers.filter { user ->
-                            user.name.contains(searchQuery, ignoreCase = true) ||
-                                    user.email.contains(searchQuery, ignoreCase = true)
-                        }
-                    } else {
-                        cachedUsers
+                val filteredUsers = if (searchQuery.isNotEmpty()) {
+                    cachedUsers.filter { user ->
+                        user.name.contains(searchQuery, ignoreCase = true) ||
+                                user.email.contains(searchQuery, ignoreCase = true)
                     }
+                } else {
+                    cachedUsers
+                }
 
-                    paginateUsers(filteredCached, currentPage)
+                if (filteredUsers.isNotEmpty()) {
+                    paginateUsers(filteredUsers, currentPage)
                 } else {
                     LoadResult.Error(e)
                 }
-
             } catch (cacheError: Exception) {
                 LoadResult.Error(e)
             }
