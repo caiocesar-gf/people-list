@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -11,7 +12,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.snackbar.Snackbar
 import com.project.peoplelist.databinding.FragmentUserListBinding
 import com.project.peoplelist.presentation.UserListAdapter
-import com.project.peoplelist.presentation.UserLoadStateAdapter
 import com.project.peoplelist.presentation.viewmodel.UserListViewModel
 import com.project.peoplelist.presentation.viewmodel.UserListState
 import kotlinx.coroutines.flow.collectLatest
@@ -41,6 +41,7 @@ class UserListFragment : Fragment() {
         setupAdapter()
         setupRecyclerView()
         setupSwipeToRefresh()
+        setupSearch()
         observeState()
         observeUsers()
     }
@@ -55,10 +56,7 @@ class UserListFragment : Fragment() {
     private fun setupRecyclerView() {
         binding.userRecyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
-            // ✅ Adiciona footer de loading para mostrar quando está carregando próxima página
-            adapter = this@UserListFragment.adapter.withLoadStateFooter(
-                footer = UserLoadStateAdapter { this@UserListFragment.adapter.retry() }
-            )
+            adapter = this@UserListFragment.adapter
             setHasFixedSize(true)
         }
     }
@@ -67,6 +65,13 @@ class UserListFragment : Fragment() {
         binding.swipeRefreshLayout.setOnRefreshListener {
             viewModel.refresh()
             adapter.refresh()
+        }
+    }
+
+    private fun setupSearch() {
+        binding.searchEditText.addTextChangedListener { text ->
+            val query = text?.toString()?.trim() ?: ""
+            viewModel.search(query)
         }
     }
 

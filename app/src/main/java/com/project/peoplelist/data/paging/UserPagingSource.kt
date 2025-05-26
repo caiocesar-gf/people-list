@@ -10,14 +10,22 @@ import kotlinx.coroutines.flow.first
 
 class UserPagingSource(
     private val remoteUserDataSource: RemoteUserDataSource,
-    private val localUserDataSource: LocalUserDataSource
+    private val localUserDataSource: LocalUserDataSource,
+    private val searchQuery: String = ""
 ) : PagingSource<Int, User>() {
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, User> {
         val currentPage = params.key ?: 1
 
         return try {
-            // Verifica cache primeiro
+            // Se tem filtro de busca, sempre busca da rede
+            if (searchQuery.isNotEmpty()) {
+                delay(500) // Delay menor para busca
+                val filteredUsers = remoteUserDataSource.getUsers(searchQuery).first()
+                return paginateUsers(filteredUsers, currentPage)
+            }
+
+            // Sem filtro: verifica cache primeiro
             val cachedUsers = try {
                 localUserDataSource.getUsers().first()
             } catch (e: Exception) {
@@ -43,11 +51,11 @@ class UserPagingSource(
             }
 
             // Se não tem cache, busca da rede
-            delay(800) // ✅ Delay para mostrar loading
+            delay(800) // Delay maior para primeira carga
 
             val allUsers = remoteUserDataSource.getUsers().first()
 
-            // Salva no cache
+            // Salva no cache apenas quando não há filtro
             if (allUsers.isNotEmpty()) {
                 try {
                     localUserDataSource.deleteAllUsers()
@@ -60,12 +68,22 @@ class UserPagingSource(
             paginateUsers(allUsers, currentPage)
 
         } catch (e: Exception) {
-            // Em caso de erro de rede, SEMPRE tenta carregar do cache
+            // Em caso de erro de rede, tenta carregar do cache
             try {
                 val cachedUsers = localUserDataSource.getUsers().first()
 
                 if (cachedUsers.isNotEmpty()) {
-                    paginateUsers(cachedUsers, currentPage)
+                    // Aplica filtro no cache se necessário
+                    val filteredCached = if (searchQuery.isNotEmpty()) {
+                        cachedUsers.filter { user ->
+                            user.name.contains(searchQuery, ignoreCase = true) ||
+                                    user.email.contains(searchQuery, ignoreCase = true)
+                        }
+                    } else {
+                        cachedUsers
+                    }
+
+                    paginateUsers(filteredCached, currentPage)
                 } else {
                     LoadResult.Error(e)
                 }

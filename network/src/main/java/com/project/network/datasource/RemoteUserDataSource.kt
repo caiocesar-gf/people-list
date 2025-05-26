@@ -5,5 +5,5 @@ import kotlinx.coroutines.flow.Flow
 
 
 interface RemoteUserDataSource {
-    fun getUsers(): Flow<List<User>>
+    fun getUsers(searchQuery: String = ""): Flow<List<User>>
 }

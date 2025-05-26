@@ -13,9 +13,19 @@ class RemoteUserDataSourceImpl(
     private val service: UserService
 ) : RemoteUserDataSource {
 
-    override fun getUsers(): Flow<List<User>> = flow {
+    override fun getUsers(searchQuery: String): Flow<List<User>> = flow {
         val users = withContext(Dispatchers.IO) {
-            service.getUsers().map { it.toDomain() }
+            service.getUsers()
+                .map { it.toDomain() }
+                .filter { user ->
+                    if (searchQuery.isEmpty()) {
+                        true
+                    } else {
+                        // Filtra apenas por NOME e E-MAIL
+                        user.name.contains(searchQuery, ignoreCase = true) ||
+                                user.email.contains(searchQuery, ignoreCase = true)
+                    }
+                }
         }
 
         emit(users)
