@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.snackbar.Snackbar
 import com.project.peoplelist.databinding.FragmentUserListBinding
 import com.project.peoplelist.presentation.UserListAdapter
+import com.project.peoplelist.presentation.UserLoadStateAdapter
 import com.project.peoplelist.presentation.viewmodel.UserListViewModel
 import com.project.peoplelist.presentation.viewmodel.UserListState
 import kotlinx.coroutines.flow.collectLatest
@@ -54,21 +55,34 @@ class UserListFragment : Fragment() {
     private fun setupRecyclerView() {
         binding.userRecyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
-            adapter = this@UserListFragment.adapter
+            // ✅ Adiciona footer de loading para mostrar quando está carregando próxima página
+            adapter = this@UserListFragment.adapter.withLoadStateFooter(
+                footer = UserLoadStateAdapter { this@UserListFragment.adapter.retry() }
+            )
             setHasFixedSize(true)
         }
     }
 
     private fun setupSwipeToRefresh() {
         binding.swipeRefreshLayout.setOnRefreshListener {
-            performRefresh()
+            viewModel.refresh()
+            adapter.refresh()
         }
     }
 
     private fun observeState() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.state.collectLatest { state ->
-                updateUI(state)
+                binding.swipeRefreshLayout.isRefreshing = state.isLoading
+
+                state.error?.let { error ->
+                    Snackbar.make(binding.root, error, Snackbar.LENGTH_LONG)
+                        .setAction("Tentar novamente") {
+                            viewModel.retry()
+                        }
+                        .show()
+                    viewModel.clearError()
+                }
             }
         }
     }
@@ -79,26 +93,6 @@ class UserListFragment : Fragment() {
                 adapter.submitData(pagingData)
             }
         }
-    }
-
-    private fun updateUI(state: UserListState) {
-        // Atualiza SwipeRefreshLayout
-        binding.swipeRefreshLayout.isRefreshing = state.isLoading
-
-        // Mostra erro se houver
-        state.error?.let { error ->
-            Snackbar.make(binding.root, error, Snackbar.LENGTH_LONG)
-                .setAction("Tentar novamente") {
-                    viewModel.retry()
-                }
-                .show()
-            viewModel.clearError()
-        }
-    }
-
-    private fun performRefresh() {
-        viewModel.refresh()
-        adapter.refresh()
     }
 
     override fun onDestroyView() {

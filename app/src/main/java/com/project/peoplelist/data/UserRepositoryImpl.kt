@@ -16,18 +16,18 @@ class UserRepositoryImpl(
     private val localUserDataSource: LocalUserDataSource
 ) : UserRepository {
 
-    override fun getUsers(searchQuery: String): Flow<PagingData<User>> {
+    override fun getUsers(): Flow<PagingData<User>> {
         return Pager(
             config = PagingConfig(
-                pageSize = 10,
+                pageSize = 3,  // ✅ 3 usuários por página
                 enablePlaceholders = false,
-                prefetchDistance = 3
+                prefetchDistance = 2,
+                initialLoadSize = 3  // ✅ Primeira carga também 3
             ),
             pagingSourceFactory = {
                 UserPagingSource(
                     remoteUserDataSource = remoteUserDataSource,
-                    localUserDataSource = localUserDataSource,
-                    searchQuery = searchQuery
+                    localUserDataSource = localUserDataSource
                 )
             }
         ).flow
@@ -41,26 +41,23 @@ class UserRepositoryImpl(
                 localUser
             } else {
                 try {
-                    val users = remoteUserDataSource.getUsers("").first()
-                    val user = users.find { it?.id == id }
+                    val allUsers = remoteUserDataSource.getUsers().first()
+                    val user = allUsers.find { it.id == id }
 
                     user?.let {
                         try {
                             localUserDataSource.insertUsers(listOf(it))
                         } catch (cacheException: Exception) {
                             // Se falhar ao salvar no cache, continua sem cache
-                            // Não afeta o resultado principal
                         }
                     }
 
                     user
                 } catch (networkException: Exception) {
-                    // Se falhar na rede, retorna null
                     null
                 }
             }
         } catch (e: Exception) {
-            // Em caso de erro geral, tenta apenas o cache local
             try {
                 localUserDataSource.getUserById(id)
             } catch (cacheException: Exception) {
@@ -79,16 +76,14 @@ class UserRepositoryImpl(
 
     override suspend fun refreshUsers() {
         try {
-            val users = remoteUserDataSource.getUsers("").first()
+            val users = remoteUserDataSource.getUsers().first()
 
-            // Limpa cache atual
             try {
                 localUserDataSource.deleteAllUsers()
             } catch (deleteException: Exception) {
                 // Se falhar ao deletar, continua
             }
 
-            // Insere novos dados
             if (users.isNotEmpty()) {
                 localUserDataSource.insertUsers(users)
             }

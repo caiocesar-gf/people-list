@@ -5,7 +5,7 @@ import com.project.core.User
 import kotlinx.coroutines.flow.Flow
 
 interface UserRepository {
-    fun getUsers(searchQuery: String = ""): Flow<PagingData<User>>
+    fun getUsers(): Flow<PagingData<User>>
     suspend fun getUserById(id: Int): User?
     suspend fun clearCache()
     suspend fun refreshUsers()

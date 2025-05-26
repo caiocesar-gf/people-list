@@ -10,7 +10,7 @@ import com.project.peoplelist.databinding.ItemUserBinding
 
 class UserListAdapter(
     private val onUserClick: (User) -> Unit
-) : PagingDataAdapter<User, UserListAdapter.UserViewHolder>(UserDiffCallback()) {
+) : PagingDataAdapter<User, UserListAdapter.UserViewHolder>(USER_COMPARATOR) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): UserViewHolder {
         val binding = ItemUserBinding.inflate(
@@ -18,24 +18,40 @@ class UserListAdapter(
             parent,
             false
         )
-        return UserViewHolder(binding, onUserClick)
+        return UserViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: UserViewHolder, position: Int) {
-        getItem(position)?.let { holder.bind(it) }
+        val user = getItem(position)
+        if (user != null) {
+            holder.bind(user)
+        }
     }
 
-    class UserViewHolder(
-        private val binding: ItemUserBinding,
-        private val onUserClick: (User) -> Unit
+    inner class UserViewHolder(
+        private val binding: ItemUserBinding
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(user: User) {
             binding.apply {
+                // Informações pessoais
                 textUserName.text = user.name
+                textUserUsername.text = "@${user.username}"
                 textUserEmail.text = user.email
-                textUserCity.text = user.address.city
+                textUserPhone.text = user.phone
+                textUserWebsite.text = user.website
 
+                // Endereço completo
+                val fullAddress = "${user.address.street}, ${user.address.suite}\n" +
+                        "${user.address.city}, ${user.address.zipcode}"
+                textUserAddress.text = fullAddress
+
+                // Informações da empresa
+                textCompanyName.text = user.company.name
+                textCompanyCatchPhrase.text = user.company.catchPhrase
+                textCompanyBs.text = user.company.bs
+
+                // Click listener
                 root.setOnClickListener {
                     onUserClick(user)
                 }
@@ -43,13 +59,15 @@ class UserListAdapter(
         }
     }
 
-    private class UserDiffCallback : DiffUtil.ItemCallback<User>() {
-        override fun areItemsTheSame(oldItem: User, newItem: User): Boolean {
-            return oldItem.id == newItem.id
-        }
+    companion object {
+        private val USER_COMPARATOR = object : DiffUtil.ItemCallback<User>() {
+            override fun areItemsTheSame(oldItem: User, newItem: User): Boolean {
+                return oldItem.id == newItem.id
+            }
 
-        override fun areContentsTheSame(oldItem: User, newItem: User): Boolean {
-            return oldItem == newItem
+            override fun areContentsTheSame(oldItem: User, newItem: User): Boolean {
+                return oldItem == newItem
+            }
         }
     }
 }
