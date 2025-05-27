@@ -6,6 +6,7 @@ import com.project.network.datasource.RemoteUserDataSourceImpl
 import com.project.network.service.UserService
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import retrofit2.Retrofit
@@ -40,7 +41,7 @@ object NetworkModule {
                 get<Retrofit>().create(UserService::class.java)
             }
             single<RemoteUserDataSource> {
-                RemoteUserDataSourceImpl(get())
+                RemoteUserDataSourceImpl(get(), androidContext())
             }
         })
     }

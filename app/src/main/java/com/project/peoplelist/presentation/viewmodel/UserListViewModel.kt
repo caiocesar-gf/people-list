@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.project.core.User
+import com.project.network.extensions.handleApiResult
 import com.project.peoplelist.domain.usecase.GetUsersUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -18,7 +19,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 
 data class UserListState(
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val cacheMessage: String? = null
 )
 
 class UserListViewModel(
@@ -30,12 +32,25 @@ class UserListViewModel(
 
     private val _searchQuery = MutableStateFlow("")
 
+    fun setError(message: String) {
+        _state.value = _state.value.copy(error = message)
+    }
+
+    fun setCacheMessage(message: String) {
+        _state.value = _state.value.copy(cacheMessage = message)
+    }
+
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     val users: Flow<PagingData<User>> = _searchQuery
         .debounce(300)
         .distinctUntilChanged()
         .flatMapLatest { query ->
-            getUsersUseCase(query.trim())
+            getUsersUseCase(
+                searchQuery = query.trim(),
+                onCacheUsed = { message ->
+                    setCacheMessage(message)
+                }
+            )
         }
         .cachedIn(viewModelScope)
 
@@ -44,12 +59,18 @@ class UserListViewModel(
     }
 
     fun refresh() {
+        // Implementar lógica de refresh se necessário
     }
 
     fun retry() {
+        // Implementar lógica de retry se necessário
     }
 
     fun clearError() {
         _state.value = _state.value.copy(error = null)
+    }
+
+    fun clearCacheMessage() {
+        _state.value = _state.value.copy(cacheMessage = null)
     }
 }

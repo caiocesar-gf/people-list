@@ -31,10 +31,8 @@ class UserLoadStateAdapter(
 
         fun bind(loadState: LoadState) {
             binding.apply {
-                // Loading
                 progressBar.isVisible = loadState is LoadState.Loading
 
-                // Error
                 val isError = loadState is LoadState.Error
                 textError.isVisible = isError
                 buttonRetry.isVisible = isError
