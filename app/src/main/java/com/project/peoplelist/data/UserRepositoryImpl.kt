@@ -6,6 +6,7 @@ import androidx.paging.PagingData
 import com.project.core.User
 import com.project.database.datasource.LocalUserDataSource
 import com.project.network.datasource.RemoteUserDataSource
+import com.project.network.extensions.ApiResult
 import com.project.peoplelist.data.paging.UserPagingSource
 import com.project.peoplelist.domain.repository.UserRepository
 import kotlinx.coroutines.flow.Flow
@@ -19,11 +20,11 @@ class UserRepositoryImpl(
     override fun getUsers(searchQuery: String): Flow<PagingData<User>> {
         return Pager(
             config = PagingConfig(
-                pageSize = 3,  // ✅ 3 usuários por página SEMPRE
+                pageSize = 3,
                 enablePlaceholders = false,
-                prefetchDistance = 1,  // ✅ Menor para melhor controle
-                initialLoadSize = 3,   // ✅ Primeira carga também 3
-                maxSize = 50          // ✅ Limite máximo para performance
+                prefetchDistance = 1,
+                initialLoadSize = 3,
+                maxSize = 50
             ),
             pagingSourceFactory = {
                 UserPagingSource(
@@ -42,21 +43,27 @@ class UserRepositoryImpl(
             if (localUser != null) {
                 localUser
             } else {
-                try {
-                    val allUsers = remoteUserDataSource.getUsers("").first()
-                    val user = allUsers.find { it.id == id }
-
-                    user?.let {
+                when (val result = remoteUserDataSource.getUserById(id)) {
+                    is ApiResult.Success -> {
                         try {
-                            localUserDataSource.insertUsers(listOf(it))
+                            localUserDataSource.insertUsers(listOf(result.data))
                         } catch (cacheException: Exception) {
                             // Se falhar ao salvar no cache, continua sem cache
                         }
+                        result.data
                     }
-
-                    user
-                } catch (networkException: Exception) {
-                    null
+                    is ApiResult.Error -> {
+                        // Log: Erro HTTP ${result.code}: ${result.message}
+                        null
+                    }
+                    is ApiResult.ParseError -> {
+                        // Log: Erro de parsing: ${result.message}
+                        null
+                    }
+                    is ApiResult.NetworkError -> {
+                        // Log: Erro de rede: ${result.message}
+                        null
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -78,16 +85,26 @@ class UserRepositoryImpl(
 
     override suspend fun refreshUsers() {
         try {
-            val users = remoteUserDataSource.getUsers("").first()
+            when (val result = remoteUserDataSource.getUsersWithResult("").first()) {
+                is ApiResult.Success -> {
+                    try {
+                        localUserDataSource.deleteAllUsers()
+                    } catch (deleteException: Exception) {
+                    }
 
-            try {
-                localUserDataSource.deleteAllUsers()
-            } catch (deleteException: Exception) {
-                // Se falhar ao deletar, continua
-            }
-
-            if (users.isNotEmpty()) {
-                localUserDataSource.insertUsers(users)
+                    if (result.data.isNotEmpty()) {
+                        localUserDataSource.insertUsers(result.data)
+                    }
+                }
+                is ApiResult.Error -> {
+                    throw Exception("Erro do servidor: ${result.message}")
+                }
+                is ApiResult.ParseError -> {
+                    throw Exception("Erro ao processar dados: ${result.message}")
+                }
+                is ApiResult.NetworkError -> {
+                    throw Exception("Erro de conexão: ${result.message}")
+                }
             }
         } catch (e: Exception) {
             throw Exception("Erro ao atualizar dados: ${e.message}", e)

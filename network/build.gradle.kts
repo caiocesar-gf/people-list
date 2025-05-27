@@ -8,10 +8,9 @@ plugins {
     alias(libs.plugins.kotlin.android)
 }
 
-fun getPropertyFromAssets(propertyName: String): String {
+fun getPropertyFromFile(propertyName: String): String {
     val properties = Properties()
-    val assetsDir = file("src/main/assets")
-    val propFile = File(assetsDir, "project.properties")
+    val propFile = rootProject.file("project.properties")
 
     return if (propFile.exists()) {
         properties.load(FileInputStream(propFile))
@@ -29,9 +28,6 @@ android {
     defaultConfig {
         minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        buildConfigField("String", "BASE_URL", "\"${getPropertyFromAssets("BASE_URL")}\"")
-
     }
 
 
@@ -43,7 +39,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "BASE_URL", "\"${getPropertyFromFile("BASE_URL")}\"")
         }
+
+
+            debug {
+                buildConfigField("String", "BASE_URL", "\"${getPropertyFromFile("BASE_URL")}\"")
+            }
+
     }
 
     buildFeatures {
