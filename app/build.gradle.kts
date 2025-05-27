@@ -11,6 +11,13 @@ android {
     namespace = "com.project.peoplelist"
     compileSdk = 34
 
+    packaging {
+        resources {
+            excludes += setOf("META-INF/*")
+
+        }
+    }
+
     defaultConfig {
         applicationId = "com.project.peoplelist"
         minSdk = 24
@@ -76,7 +83,7 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.koin.core)
     implementation(libs.kotlinx.coroutines.android)
-    testImplementation(libs.junit)
+
     testImplementation(libs.androidx.arch.core.testing)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.fragment.testing)
