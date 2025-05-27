@@ -5,6 +5,7 @@ import androidx.paging.PagingState
 import com.project.core.User
 import com.project.database.datasource.LocalUserDataSource
 import com.project.network.datasource.RemoteUserDataSource
+import com.project.network.extensions.ApiResult
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
@@ -21,7 +22,12 @@ class UserPagingSource(
             delay(800)
 
             val allUsers = if (searchQuery.isNotEmpty()) {
-                remoteUserDataSource.getUsers(searchQuery).first()
+                when (val result = remoteUserDataSource.getUsersWithResult(searchQuery).first()) {
+                    is ApiResult.Success -> result.data
+                    is ApiResult.Error -> return LoadResult.Error(Exception(result.message))
+                    is ApiResult.ParseError -> return LoadResult.Error(Exception("Erro ao processar dados: ${result.message}"))
+                    is ApiResult.NetworkError -> return LoadResult.Error(Exception(result.message))
+                }
             } else {
                 val cachedUsers = try {
                     localUserDataSource.getUsers().first()
@@ -31,24 +37,40 @@ class UserPagingSource(
 
                 if (cachedUsers.isNotEmpty()) {
                     try {
-                        val freshUsers = remoteUserDataSource.getUsers("").first()
-                        if (freshUsers.isNotEmpty() && freshUsers != cachedUsers) {
-                            localUserDataSource.deleteAllUsers()
-                            localUserDataSource.insertUsers(freshUsers)
+                        when (val result = remoteUserDataSource.getUsersWithResult("").first()) {
+                            is ApiResult.Success -> {
+                                val freshUsers = result.data
+                                if (freshUsers.isNotEmpty() && freshUsers != cachedUsers) {
+                                    localUserDataSource.deleteAllUsers()
+                                    localUserDataSource.insertUsers(freshUsers)
+                                }
+                            }
+                            else -> {
+                                // Usa cache em caso de erro
+                            }
                         }
                     } catch (networkError: Exception) {
+                        // Usa cache em caso de erro
                     }
                     cachedUsers
                 } else {
-                    val users = remoteUserDataSource.getUsers("").first()
-                    if (users.isNotEmpty()) {
-                        try {
-                            localUserDataSource.deleteAllUsers()
-                            localUserDataSource.insertUsers(users)
-                        } catch (e: Exception) {
+                    when (val result = remoteUserDataSource.getUsersWithResult("").first()) {
+                        is ApiResult.Success -> {
+                            val users = result.data
+                            if (users.isNotEmpty()) {
+                                try {
+                                    localUserDataSource.deleteAllUsers()
+                                    localUserDataSource.insertUsers(users)
+                                } catch (e: Exception) {
+                                    // Erro no cache não afeta resultado
+                                }
+                            }
+                            users
                         }
+                        is ApiResult.Error -> return LoadResult.Error(Exception(result.message))
+                        is ApiResult.ParseError -> return LoadResult.Error(Exception("Erro ao processar dados: ${result.message}"))
+                        is ApiResult.NetworkError -> return LoadResult.Error(Exception(result.message))
                     }
-                    users
                 }
             }
 

@@ -1,5 +1,6 @@
 package com.project.network.di
 
+import com.project.network.BuildConfig
 import com.project.network.datasource.RemoteUserDataSource
 import com.project.network.datasource.RemoteUserDataSourceImpl
 import com.project.network.service.UserService
@@ -9,6 +10,7 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 object NetworkModule {
 
@@ -22,11 +24,14 @@ object NetworkModule {
             single {
                 OkHttpClient.Builder()
                     .addInterceptor(get<HttpLoggingInterceptor>())
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .writeTimeout(30, TimeUnit.SECONDS)
                     .build()
             }
             single {
                 Retrofit.Builder()
-                    .baseUrl("https://jsonplaceholder.typicode.com/") // ✅ URL fixa
+                    .baseUrl(BuildConfig.BASE_URL)
                     .client(get())
                     .addConverterFactory(GsonConverterFactory.create())
                     .build()
