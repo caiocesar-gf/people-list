@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -84,6 +85,7 @@ class UserListFragment : Fragment() {
     private fun observeState() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.state.collectLatest { state ->
+                // Handle error messages
                 state.error?.let { error ->
                     Snackbar.make(binding.root, error, Snackbar.LENGTH_LONG)
                         .setAction("Tentar novamente") {
@@ -92,11 +94,26 @@ class UserListFragment : Fragment() {
                         .show()
                     viewModel.clearError()
                 }
+
+                // Handle cache messages
+                state.cacheMessage?.let { message ->
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+                    viewModel.clearCacheMessage()
+                }
             }
         }
     }
 
     private fun observeUsers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            adapter.loadStateFlow.collectLatest { loadState ->
+                val error = loadState.refresh as? LoadState.Error
+                error?.let {
+                    viewModel.setError("Erro ao carregar usuários")
+                }
+            }
+        }
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.users.collectLatest { pagingData ->
                 adapter.submitData(pagingData)

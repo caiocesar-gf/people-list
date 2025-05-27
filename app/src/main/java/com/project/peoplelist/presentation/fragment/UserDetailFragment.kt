@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.navArgs
 import com.project.core.User
@@ -48,9 +49,17 @@ class UserDetailFragment : Fragment() {
         }
 
         viewModel.error.observe(viewLifecycleOwner) { error ->
-            // Handle error state
             error?.let {
                 // TODO: Show error message
+                Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show()
+            }
+        }
+
+        // Observer para mensagens de cache
+        viewModel.cacheMessage.observe(viewLifecycleOwner) { message ->
+            message?.let {
+                Toast.makeText(requireContext(), it, Toast.LENGTH_LONG).show()
+                viewModel.clearCacheMessage()
             }
         }
     }

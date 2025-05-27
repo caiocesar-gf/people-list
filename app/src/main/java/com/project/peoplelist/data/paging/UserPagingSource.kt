@@ -12,7 +12,8 @@ import kotlinx.coroutines.flow.first
 class UserPagingSource(
     private val remoteUserDataSource: RemoteUserDataSource,
     private val localUserDataSource: LocalUserDataSource,
-    private val searchQuery: String = ""
+    private val searchQuery: String = "",
+    private val onCacheUsed: ((String) -> Unit)? = null // Callback para notificar uso de cache
 ) : PagingSource<Int, User>() {
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, User> {
@@ -27,6 +28,10 @@ class UserPagingSource(
                     is ApiResult.Error -> return LoadResult.Error(Exception(result.message))
                     is ApiResult.ParseError -> return LoadResult.Error(Exception("Erro ao processar dados: ${result.message}"))
                     is ApiResult.NetworkError -> return LoadResult.Error(Exception(result.message))
+                    is ApiResult.CacheResult -> {
+                        onCacheUsed?.invoke(result.message)
+                        result.data
+                    }
                 }
             } else {
                 val cachedUsers = try {
@@ -44,15 +49,20 @@ class UserPagingSource(
                                     localUserDataSource.deleteAllUsers()
                                     localUserDataSource.insertUsers(freshUsers)
                                 }
+                                freshUsers
+                            }
+                            is ApiResult.CacheResult -> {
+                                onCacheUsed?.invoke(result.message)
+                                result.data
                             }
                             else -> {
-                                // Usa cache em caso de erro
+                                cachedUsers
                             }
                         }
                     } catch (networkError: Exception) {
-                        // Usa cache em caso de erro
+                        // Se houver erro de rede, usa cache local
+                        cachedUsers
                     }
-                    cachedUsers
                 } else {
                     when (val result = remoteUserDataSource.getUsersWithResult("").first()) {
                         is ApiResult.Success -> {
@@ -61,8 +71,7 @@ class UserPagingSource(
                                 try {
                                     localUserDataSource.deleteAllUsers()
                                     localUserDataSource.insertUsers(users)
-                                } catch (e: Exception) {
-                                    // Erro no cache não afeta resultado
+                                } catch (_: Exception) {
                                 }
                             }
                             users
@@ -70,6 +79,18 @@ class UserPagingSource(
                         is ApiResult.Error -> return LoadResult.Error(Exception(result.message))
                         is ApiResult.ParseError -> return LoadResult.Error(Exception("Erro ao processar dados: ${result.message}"))
                         is ApiResult.NetworkError -> return LoadResult.Error(Exception(result.message))
+                        is ApiResult.CacheResult -> {
+                            onCacheUsed?.invoke(result.message)
+                            val users = result.data
+                            if (users.isNotEmpty()) {
+                                try {
+                                    localUserDataSource.deleteAllUsers()
+                                    localUserDataSource.insertUsers(users)
+                                } catch (_: Exception) {
+                                }
+                            }
+                            users
+                        }
                     }
                 }
             }
@@ -89,6 +110,8 @@ class UserPagingSource(
                 }
 
                 if (filteredUsers.isNotEmpty()) {
+                    // Notifica que está usando cache local devido a erro
+                    onCacheUsed?.invoke("Erro de conexão - usando dados salvos localmente")
                     paginateUsers(filteredUsers, currentPage)
                 } else {
                     LoadResult.Error(e)
