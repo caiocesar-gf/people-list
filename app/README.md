@@ -234,7 +234,5 @@ cd PeopleList
 ## Licença
 
 Este projeto foi desenvolvido como parte de um desafio técnico.
-
 ---
-
 **Desenvolvido com muito café e dedicação**
