@@ -13,8 +13,11 @@ class UserPagingSource(
     private val remoteUserDataSource: RemoteUserDataSource,
     private val localUserDataSource: LocalUserDataSource,
     private val searchQuery: String = "",
-    private val onCacheUsed: ((String) -> Unit)? = null // Callback para notificar uso de cache
+    private val onCacheUsed: ((String) -> Unit)? = null
 ) : PagingSource<Int, User>() {
+
+    private var allCachedUsers: List<User>? = null
+    private var isUsingCache = false
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, User> {
         val currentPage = params.key ?: 1
@@ -22,14 +25,27 @@ class UserPagingSource(
         return try {
             delay(800)
 
+            if (isUsingCache && allCachedUsers != null) {
+                return paginateUsers(allCachedUsers!!, currentPage)
+            }
+
             val allUsers = if (searchQuery.isNotEmpty()) {
                 when (val result = remoteUserDataSource.getUsersWithResult(searchQuery).first()) {
-                    is ApiResult.Success -> result.data
-                    is ApiResult.Error -> return LoadResult.Error(Exception(result.message))
+                    is ApiResult.Success -> {
+                        isUsingCache = false
+                        result.data
+                    }
+                    is ApiResult.Error -> {
+                        return tryLocalCacheWithSearch(searchQuery) ?: LoadResult.Error(Exception(result.message))
+                    }
                     is ApiResult.ParseError -> return LoadResult.Error(Exception("Erro ao processar dados: ${result.message}"))
-                    is ApiResult.NetworkError -> return LoadResult.Error(Exception(result.message))
+                    is ApiResult.NetworkError -> {
+                        return tryLocalCacheWithSearch(searchQuery) ?: LoadResult.Error(Exception(result.message))
+                    }
                     is ApiResult.CacheResult -> {
                         onCacheUsed?.invoke(result.message)
+                        isUsingCache = true
+                        allCachedUsers = result.data
                         result.data
                     }
                 }
@@ -49,18 +65,30 @@ class UserPagingSource(
                                     localUserDataSource.deleteAllUsers()
                                     localUserDataSource.insertUsers(freshUsers)
                                 }
+                                isUsingCache = false
                                 freshUsers
                             }
                             is ApiResult.CacheResult -> {
                                 onCacheUsed?.invoke(result.message)
+                                isUsingCache = true
+                                allCachedUsers = result.data
                                 result.data
                             }
                             else -> {
+                                isUsingCache = true
+                                allCachedUsers = cachedUsers
+                                if (currentPage == 1) {
+                                    onCacheUsed?.invoke("Erro de conexão - usando dados salvos localmente")
+                                }
                                 cachedUsers
                             }
                         }
                     } catch (networkError: Exception) {
-                        // Se houver erro de rede, usa cache local
+                        isUsingCache = true
+                        allCachedUsers = cachedUsers
+                        if (currentPage == 1) {
+                            onCacheUsed?.invoke("Erro de conexão - usando dados salvos localmente")
+                        }
                         cachedUsers
                     }
                 } else {
@@ -74,6 +102,7 @@ class UserPagingSource(
                                 } catch (_: Exception) {
                                 }
                             }
+                            isUsingCache = false
                             users
                         }
                         is ApiResult.Error -> return LoadResult.Error(Exception(result.message))
@@ -82,6 +111,8 @@ class UserPagingSource(
                         is ApiResult.CacheResult -> {
                             onCacheUsed?.invoke(result.message)
                             val users = result.data
+                            isUsingCache = true
+                            allCachedUsers = users
                             if (users.isNotEmpty()) {
                                 try {
                                     localUserDataSource.deleteAllUsers()
@@ -98,27 +129,32 @@ class UserPagingSource(
             paginateUsers(allUsers, currentPage)
 
         } catch (e: Exception) {
-            try {
-                val cachedUsers = localUserDataSource.getUsers().first()
-                val filteredUsers = if (searchQuery.isNotEmpty()) {
-                    cachedUsers.filter { user ->
-                        user.name.contains(searchQuery, ignoreCase = true) ||
-                                user.email.contains(searchQuery, ignoreCase = true)
-                    }
-                } else {
-                    cachedUsers
-                }
+            tryLocalCacheWithSearch(searchQuery) ?: LoadResult.Error(e)
+        }
+    }
 
-                if (filteredUsers.isNotEmpty()) {
-                    // Notifica que está usando cache local devido a erro
-                    onCacheUsed?.invoke("Erro de conexão - usando dados salvos localmente")
-                    paginateUsers(filteredUsers, currentPage)
-                } else {
-                    LoadResult.Error(e)
+    private suspend fun tryLocalCacheWithSearch(searchQuery: String): LoadResult<Int, User>? {
+        return try {
+            val cachedUsers = localUserDataSource.getUsers().first()
+            val filteredUsers = if (searchQuery.isNotEmpty()) {
+                cachedUsers.filter { user ->
+                    user.name.contains(searchQuery, ignoreCase = true) ||
+                            user.email.contains(searchQuery, ignoreCase = true)
                 }
-            } catch (cacheError: Exception) {
-                LoadResult.Error(e)
+            } else {
+                cachedUsers
             }
+
+            if (filteredUsers.isNotEmpty()) {
+                onCacheUsed?.invoke("Erro de conexão - usando dados salvos localmente")
+                isUsingCache = true
+                allCachedUsers = filteredUsers
+                paginateUsers(filteredUsers, 1)
+            } else {
+                null
+            }
+        } catch (cacheError: Exception) {
+            null
         }
     }
 

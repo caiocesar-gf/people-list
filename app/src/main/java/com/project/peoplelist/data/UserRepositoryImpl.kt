@@ -1,4 +1,4 @@
-package com.project.peoplelist.data
+package com.project.peoplelist.data.repository
 
 import androidx.paging.Pager
 import androidx.paging.PagingConfig

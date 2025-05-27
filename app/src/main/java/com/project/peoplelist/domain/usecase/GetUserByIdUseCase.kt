@@ -1,4 +1,3 @@
-
 package com.project.peoplelist.domain.usecase
 
 import com.project.core.User
