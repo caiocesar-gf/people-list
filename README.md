@@ -1,6 +1,7 @@
 # PeopleList - App Android
 
-Um aplicativo Android robusto que consome a API pública de usuários do JSONPlaceholder, implementado com Clean Architecture e seguindo as melhores práticas de desenvolvimento Android.
+Um aplicativo Android robusto que consome a API pública de usuários do JSONPlaceholder, implementado com Clean Architecture, MVVM e seguindo as melhores práticas de desenvolvimento Android.
+Tempo gasto de 12 horas (3 dias)
 
 ## Sobre o App
 
