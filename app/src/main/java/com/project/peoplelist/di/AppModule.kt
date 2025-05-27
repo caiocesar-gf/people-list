@@ -2,7 +2,7 @@ package com.project.peoplelist.di
 
 import com.project.database.di.DatabaseModule
 import com.project.network.di.NetworkModule
-import com.project.peoplelist.data.UserRepositoryImpl
+import com.project.peoplelist.data.repository.UserRepositoryImpl
 import com.project.peoplelist.domain.repository.UserRepository
 import com.project.peoplelist.domain.usecase.GetUserByIdUseCase
 import com.project.peoplelist.domain.usecase.GetUsersUseCase
