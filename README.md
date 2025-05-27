@@ -173,7 +173,7 @@ project/
 ### Configuração
 1. Clone o repositório
 ```bash
-git clone [repository-url]
+git clone https://github.com/caiocesar-gf/people-list
 cd PeopleList
 ```
 
@@ -191,8 +191,6 @@ cd PeopleList
 # Testes unitários
 ./gradlew test
 
-# Testes de UI
-./gradlew connectedAndroidTest
 
 # Todos os testes
 ./gradlew check
@@ -234,5 +232,3 @@ cd PeopleList
 ## Licença
 
 Este projeto foi desenvolvido como parte de um desafio técnico.
----
-**Desenvolvido com muito café e dedicação**
